@@ -17,6 +17,11 @@ impl OutputCode {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GmPtr(*const cty::c_char);
 impl GmPtr {
+    /// Creates a new GmPtr based on the given pointer.
+    pub fn new(ptr: *const cty::c_char) -> Self {
+        Self(ptr)
+    }
+
     /// Returns a copy of the inner value.
     pub fn inner(&self) -> *const cty::c_char {
         self.0
