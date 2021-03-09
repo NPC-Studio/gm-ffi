@@ -3,6 +3,7 @@ use std::str::FromStr;
 /// A status code the represents the outcome of a Rust-side function,
 /// intended to be sent back to GameMaker.
 #[repr(transparent)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct OutputCode(f64);
 impl OutputCode {
     /// Represents an operation that executed as intended.
@@ -37,7 +38,6 @@ impl GmPtr {
 }
 impl FromStr for GmPtr {
     type Err = cstr_core::NulError;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(GmPtr(cstr_core::CString::new(s)?.as_ptr()))
     }
