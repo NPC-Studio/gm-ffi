@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 /// A status code the represents the outcome of a Rust-side function,
 /// intended to be sent back to GameMaker.
 #[repr(transparent)]
@@ -26,6 +28,13 @@ impl GmPtr {
     /// Assumes that the pointer being used is valid as a c_str pointer.
     pub fn to_str(self) -> Result<&'static str, std::str::Utf8Error> {
         unsafe { cstr_core::CStr::from_ptr(self.0).to_str() }
+    }
+}
+impl FromStr for GmPtr {
+    type Err = cstr_core::NulError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(GmPtr(cstr_core::CString::new(s)?.as_ptr()))
     }
 }
 impl core::ops::Deref for GmPtr {
