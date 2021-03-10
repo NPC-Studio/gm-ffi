@@ -25,6 +25,15 @@ impl GmPtr {
         Self(ptr)
     }
 
+    /// Returns a self with `NULL` inside it. Be careful out there!
+    ///
+    /// # Safety
+    /// It's a nullptr, come on you dummy! You can obviously break everything
+    /// with this.
+    pub unsafe fn null() -> Self {
+        Self(core::ptr::null())
+    }
+
     /// Returns a copy of the inner value.
     pub fn inner(&self) -> *const c_char {
         self.0
@@ -58,12 +67,12 @@ pub struct GmId(f64);
 impl GmId {
     /// Creates a new ID. This is intended for Units Tests.
     #[cfg(test)]
-    pub fn new(id: f64) -> Self {
+    pub const fn new(id: f64) -> Self {
         Self(id)
     }
 
     /// Returns a dummy, with the f64::MAX inside it.
-    pub fn dummy() -> Self {
+    pub const fn dummy() -> Self {
         Self(f64::MAX)
     }
 }
