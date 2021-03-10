@@ -1,3 +1,7 @@
+#![no_std]
+
+use cty::c_char;
+
 /// A status code the represents the outcome of a Rust-side function,
 /// intended to be sent back to GameMaker.
 #[repr(transparent)]
@@ -14,15 +18,15 @@ impl OutputCode {
 /// into its inner c_char.
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct GmPtr(*const cty::c_char);
+pub struct GmPtr(*const c_char);
 impl GmPtr {
     /// Creates a new GmPtr based on the given pointer.
-    pub fn new(ptr: *const cty::c_char) -> Self {
+    pub fn new(ptr: *const c_char) -> Self {
         Self(ptr)
     }
 
     /// Returns a copy of the inner value.
-    pub fn inner(&self) -> *const cty::c_char {
+    pub fn inner(&self) -> *const c_char {
         self.0
     }
 
@@ -30,14 +34,85 @@ impl GmPtr {
     ///
     /// # Saftey
     /// Assumes that the pointer being used is valid as a c_str pointer.
-    pub fn to_str(self) -> Result<&'static str, std::str::Utf8Error> {
+    pub fn to_str(self) -> Result<&'static str, core::str::Utf8Error> {
         unsafe { cstr_core::CStr::from_ptr(self.0) }.to_str()
     }
 }
 impl core::ops::Deref for GmPtr {
-    type Target = *const cty::c_char;
+    type Target = *const c_char;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// This is a Gm Id for a buffer, or any other dynamically allocated texture.
+/// It is transparent and can be sent back to Gm as a Parameter or as a Return type.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct GmId(f64);
+
+/// Our basic GmBuffer. This holds anything you want.
+///
+/// # Safety
+/// We LIE to Rust and tell it that the buffer held within is `'static`.
+/// It is **not** static, but we're going to act like it is. Because GM is our
+/// allocator, a user could easily decide to deallocate a buffer.
+///
+/// We would very much so like if they don't do that, and will pretend like they cannot.
+/// If, however, they do, this entire data structure will be inadequate.
+#[derive(Debug)]
+pub struct GmBuffer<T: 'static> {
+    /// An Id for the GameMaker buffer to return when we want to destruct this.
+    id: GmId,
+
+    /// The actual vertex buffer that we write to.
+    pub buffer: &'static mut [T],
+}
+
+impl<T> GmBuffer<T> {
+    /// Creates a new Gm Buffer.
+    ///
+    /// - `gm_id` is the id, in GameMaker, of the buffer we're trying to create.
+    /// - `gm_ptr` is the pointer provided to the buffer that GameMaker gives us.
+    /// - `len` is the number of T's that can be fit within the buffer, **not** the
+    /// number of bytes. For more information, see [from_raw_parts](core::slice::from_raw_parts_mut)
+    ///
+    /// # Safety
+    /// Buffer must be allocated BY GAMEMAKER, not by some Rust code. The following invariants, in particular
+    /// must be held in order for this type to be safe:
+    /// - The buffer must be valid until `GmBuffer` is dropped
+    /// - The buffer's `id` must be a valid `GmId` from GameMaker.
+    /// - T must be sized, non-zero sized, and **must be zeroable**. This means that an "all zeroes"
+    ///   representation of the buffer is valid.  
+    pub unsafe fn new(gm_id: GmId, gm_ptr: GmPtr, len: usize) -> Self {
+        let buffer = {
+            let buf = gm_ptr.inner() as *mut c_char as *mut T;
+
+            core::slice::from_raw_parts_mut(buf, len)
+        };
+
+        Self { id: gm_id, buffer }
+    }
+
+    /// This destructs the Buffer, taking self, and returning the Id. Once we give up ownership
+    /// of the ID by exposing it, we assume that we cannot safely hold onto the buffer anymore (ie,
+    /// we assume that it will be destroyed), and therefore, this function takes `self`.
+    pub fn id(self) -> GmId {
+        self.id
+    }
+}
+
+impl<T> core::ops::Index<usize> for GmBuffer<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.buffer[index]
+    }
+}
+
+impl<T> core::ops::IndexMut<usize> for GmBuffer<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.buffer[index]
     }
 }
 
