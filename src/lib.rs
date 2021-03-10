@@ -47,9 +47,26 @@ impl core::ops::Deref for GmPtr {
 
 /// This is a Gm Id for a buffer, or any other dynamically allocated texture.
 /// It is transparent and can be sent back to Gm as a Parameter or as a Return type.
+///
+/// Generally, you shouldn't be constructing this, but should be getting this from Gm.
+/// The one exception is in Unit Tests, where you can get access to a `new` method, or
+/// the `dummy` variant, which will give you an f64::MAX inside.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct GmId(f64);
+
+impl GmId {
+    /// Creates a new ID. This is intended for Units Tests.
+    #[cfg(test)]
+    pub fn new(id: f64) -> Self {
+        Self(id)
+    }
+
+    /// Returns a dummy, with the f64::MAX inside it.
+    pub fn dummy() -> Self {
+        Self(f64::MAX)
+    }
+}
 
 /// Our basic GmBuffer. This holds anything you want.
 ///
