@@ -1,4 +1,8 @@
+//! A Rust crate to interface between GameMaker and Rust.
+
 #![no_std]
+#![deny(rust_2018_idioms, broken_intra_doc_links)]
+#![deny(missing_docs)]
 
 use cty::c_char;
 
@@ -178,13 +182,52 @@ impl<T> core::ops::IndexMut<usize> for GmBuffer<T> {
     }
 }
 
+/// A GmBuffer whose purpose is to pass return data from Rust to GM. Useful in situations
+/// where you need to return an [OutputCode], but still have return data that needs to be
+/// communicated.
+pub struct Bridge(GmBuffer<u32>);
+impl Bridge {
+    /// Creates a new [Bridge] based upon a [GmBuffer].
+    pub fn new(buf: GmBuffer<u32>) -> Self {
+        Self(buf)
+    }
+
+    /// Creates a new [BridgeWriter] for this [GmBridge].
+    pub fn writer(&mut self) -> BridgeWriter<'_> {
+        BridgeWriter::new(self)
+    }
+}
+
+/// A utility for writing into a Bridge. Maintains a cursor, only relevant for its own
+/// writes.
+pub struct BridgeWriter<'a>(&'a mut Bridge, usize);
+impl<'a> BridgeWriter<'a> {
+    fn new(bridge: &'a mut Bridge) -> Self {
+        Self(bridge, 0)
+    }
+
+    /// Writes a u32 into the bridge at the [BridgeWriter]'s current position.
+    pub fn write_u32(&mut self, value: u32) {
+        self.0 .0[self.1] = value;
+        self.1 += 1;
+    }
+
+    /// Writes a f32 into the bridge at the [BridgeWriter]'s current position.
+    pub fn write_f32(&mut self, value: f32) {
+        self.0 .0[self.1] = value.to_bits();
+        self.1 += 1;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn make_null_ptr() {
-        GmPtr::new(core::ptr::null());
+        unsafe {
+            GmPtr::null();
+        };
     }
 
     #[test]
