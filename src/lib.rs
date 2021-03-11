@@ -54,8 +54,12 @@ impl core::ops::Deref for GmPtr {
     }
 }
 
-/// This is a Gm Id for a buffer, or any other dynamically allocated texture.
-/// It is transparent and can be sent back to Gm as a Parameter or as a Return type.
+/// This is a Gm Id for a buffer, or any other dynamically allocated resource.
+/// It is transparent in memory but opaque in type (ie, you can't inspect what's inside it),
+/// so it can be sent back and forth to GM as an f64.
+///
+/// If you want to inspect an ID from Gm, you probably want `GmResourceId`, which is transparent
+/// in type as well.
 ///
 /// Generally, you shouldn't be constructing this, but should be getting this from Gm.
 /// The one exception is in Unit Tests, where you can get access to a `new` method, or
@@ -69,6 +73,38 @@ impl GmId {
     #[cfg(test)]
     pub const fn new(id: f64) -> Self {
         Self(id)
+    }
+
+    /// Returns a dummy, with the f64::MAX inside it.
+    pub const fn dummy() -> Self {
+        Self(f64::MAX)
+    }
+}
+
+/// This is a Gm Resource, or any other stable resource.
+///
+/// Generally, you shouldn't be constructing this, but should be getting this from Gm.
+/// The one exception is in Unit Tests, where you can get access to a `new` method, or
+/// the `dummy` variant, which will give you an f64::MAX inside.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct GmResourceId(pub f64);
+
+impl GmResourceId {
+    /// Creates a new ID. You probably shouldn't be using this, but there are times
+    /// when you might be reconstructing it.
+    pub const fn new(id: f64) -> Self {
+        Self(id)
+    }
+
+    /// Returns the inner as a usize.
+    pub const fn as_usize(self) -> usize {
+        self.0 as usize
+    }
+
+    /// Returns the inner f64.
+    pub const fn inner(self) -> f64 {
+        self.0
     }
 
     /// Returns a dummy, with the f64::MAX inside it.
