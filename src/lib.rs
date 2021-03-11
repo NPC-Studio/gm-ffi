@@ -1,9 +1,9 @@
 //! A Rust crate to interface between GameMaker and Rust.
 
-#![no_std]
+#![cfg_attr(not(test), no_std)] // this means we are std in test
+#![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
 #![deny(rust_2018_idioms, broken_intra_doc_links)]
 #![deny(missing_docs)]
-
 use cty::c_char;
 
 /// A status code the represents the outcome of a Rust-side function,
@@ -185,10 +185,21 @@ impl<T> core::ops::IndexMut<usize> for GmBuffer<T> {
 /// A GmBuffer whose purpose is to pass return data from Rust to GM. Useful in situations
 /// where you need to return an [OutputCode], but still have return data that needs to be
 /// communicated.
+///
+/// ## Safety
+/// The backing buffer must be *at least* 256 elements in size. This is just because we want to be
+/// able to write a large, but not too large amount of things.
+///
+/// 256 elements, in bytes, is `core::mem::size_of::<u32>() * 256`, or 1 kilobyte.
 pub struct Bridge(GmBuffer<u32>);
 impl Bridge {
     /// Creates a new [Bridge] based upon a [GmBuffer].
     pub fn new(buf: GmBuffer<u32>) -> Self {
+        debug_assert!(
+            buf.buffer.len() >= 256,
+            "your backing buffer needs to be at least 256 bytes"
+        );
+
         Self(buf)
     }
 
@@ -221,14 +232,8 @@ impl<'a> BridgeWriter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
-    #[test]
-    fn make_null_ptr() {
-        unsafe {
-            GmPtr::null();
-        };
-    }
+    use super::*;
 
     #[test]
     fn make_string_ptr() {
@@ -240,5 +245,27 @@ mod tests {
         let ptr = GmPtr::new("Hello, world!\0".as_ptr() as *const cty::c_char);
         let out = ptr.to_str().unwrap();
         assert_eq!(out, "Hello, world!");
+    }
+
+    #[test]
+    fn bridge() {
+        let buf = vec![0u32; 256];
+        let gm_ptr = GmPtr::new(buf.as_ptr() as *const _);
+
+        let mut bridge = unsafe { Bridge::new(GmBuffer::new(GmId::new(0.0), gm_ptr, 256)) };
+
+        let mut writer = bridge.writer();
+        writer.write_u32(18);
+        writer.write_f32(4.2);
+
+        assert_eq!(buf[0], 18);
+        assert_eq!(f32::from_bits(buf[1]), 4.2);
+
+        let mut writer = bridge.writer();
+        writer.write_f32(44.3);
+        writer.write_f32(22.2);
+
+        assert_eq!(f32::from_bits(buf[0]), 44.3);
+        assert_eq!(f32::from_bits(buf[1]), 22.2);
     }
 }
