@@ -16,6 +16,12 @@ impl OutputCode {
     pub const SUCCESS: OutputCode = OutputCode(1.0);
     /// Represents an operation that failed to execute as intended.
     pub const FAILURE: OutputCode = OutputCode(0.0);
+
+    /// Creates a custom OutputCode. This can mean whatever you want it to mean,
+    /// for example, returning the number of bytes written into a shared buffer.
+    pub fn custom(code: f64) -> Self {
+        Self(code)
+    }
 }
 
 /// Representation of a pointer sent from GameMaker. Dereferences
@@ -39,7 +45,7 @@ impl GmPtr {
     }
 
     /// Returns a copy of the inner value.
-    pub fn inner(&self) -> *const c_char {
+    pub fn inner(self) -> *const c_char {
         self.0
     }
 
@@ -85,16 +91,16 @@ impl GmId {
     }
 }
 
-/// This is a Gm Resource, or any other stable resource.
+/// This is a Gm Real, which can be a resource, or any other stable resource.
 ///
 /// Generally, you shouldn't be constructing this, but should be getting this from Gm.
 /// The one exception is in Unit Tests, where you can get access to a `new` method, or
 /// the `dummy` variant, which will give you an f64::MAX inside.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct GmResourceId(pub f64);
+pub struct GmReal(pub f64);
 
-impl GmResourceId {
+impl GmReal {
     /// Creates a new ID. You probably shouldn't be using this, but there are times
     /// when you might be reconstructing it.
     pub const fn new(id: f64) -> Self {
@@ -104,6 +110,11 @@ impl GmResourceId {
     /// Returns the inner as a usize.
     pub const fn as_usize(self) -> usize {
         self.0 as usize
+    }
+
+    /// Returns the inner as an f64.
+    pub const fn as_f64(self) -> f64 {
+        self.0
     }
 
     /// Returns the inner f64.
@@ -192,6 +203,7 @@ impl<T> core::ops::IndexMut<usize> for GmBuffer<T> {
 ///
 /// 256 elements, in bytes, is `core::mem::size_of::<u32>() * 256`, or 1 kilobyte.
 pub struct Bridge(GmBuffer<u32>);
+
 impl Bridge {
     /// Creates a new [Bridge] based upon a [GmBuffer].
     pub fn new(buf: GmBuffer<u32>) -> Self {
