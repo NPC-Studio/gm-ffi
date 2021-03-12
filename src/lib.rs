@@ -24,6 +24,17 @@ impl OutputCode {
     }
 }
 
+// blanket implementation
+impl<T, E> From<Result<T, E>> for OutputCode {
+    fn from(o: Result<T, E>) -> Self {
+        if o.is_ok() {
+            OutputCode::SUCCESS
+        } else {
+            OutputCode::FAILURE
+        }
+    }
+}
+
 /// Representation of a pointer sent from GameMaker. Dereferences
 /// into its inner c_char.
 #[repr(transparent)]
