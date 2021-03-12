@@ -19,7 +19,7 @@ impl OutputCode {
 
     /// Creates a custom OutputCode. This can mean whatever you want it to mean,
     /// for example, returning the number of bytes written into a shared buffer.
-    pub fn custom(code: f64) -> Self {
+    pub const fn custom(code: f64) -> Self {
         Self(code)
     }
 }
@@ -51,12 +51,12 @@ impl GmPtr {
     /// # Safety
     /// It's a nullptr, come on you dummy! You can obviously break everything
     /// with this.
-    pub unsafe fn null() -> Self {
+    pub const unsafe fn null() -> Self {
         Self(core::ptr::null())
     }
 
     /// Returns a copy of the inner value.
-    pub fn inner(self) -> *const c_char {
+    pub const fn inner(self) -> *const c_char {
         self.0
     }
 
