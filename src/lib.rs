@@ -4,6 +4,14 @@
 #![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
 #![deny(rust_2018_idioms, broken_intra_doc_links)]
 #![deny(missing_docs)]
+
+#[cfg(feature = "use_std")]
+extern crate std;
+
+/// An optional module for a TcpServer that can be used in debugging contexts.
+#[cfg(feature = "use_std")]
+pub mod tcp_server;
+
 use cty::c_char;
 
 /// A status code the represents the outcome of a Rust-side function,

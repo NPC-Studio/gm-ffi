@@ -6,6 +6,10 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# blank feature to enable std
+use_std = []
+
 [dependencies]
 cty  = "0.2"
 cstr_core = "0.2"
