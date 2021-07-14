@@ -93,7 +93,7 @@ impl TcpServer {
     ///
     /// ## Panics
     /// This function will crash on any error from the underlying channel.
-    pub fn send_message(&mut self, msg: String) {
+    pub fn send_message(&self, msg: String) {
         self.tx.send(msg).unwrap();
     }
 
