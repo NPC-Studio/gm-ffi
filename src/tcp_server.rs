@@ -2,7 +2,7 @@ use std::{
     io::{ErrorKind, Read, Write},
     net::{TcpListener, ToSocketAddrs},
     prelude::v1::*,
-    sync::mpsc::{channel, Sender},
+    sync::mpsc::{channel, Receiver, Sender},
     thread::{self, JoinHandle},
 };
 
@@ -13,24 +13,27 @@ use std::{
 ///
 /// It is **not** highly performant **or** portable, so please expect
 /// to only use this in debugging and developer contexts.
+#[derive(Debug)]
 pub struct TcpServer {
     // we keep this guy around for basically no reason.
     #[allow(dead_code)]
     server_handle: JoinHandle<()>,
     tx: Sender<String>,
     kill_signal: Sender<()>,
+    incoming_rcvr: Receiver<String>,
 }
 
 impl TcpServer {
     /// Creates a new tcp server at the given address.
-    pub fn new<A: ToSocketAddrs + Send + Sync + 'static>(address: A) -> Self {
+    pub fn new<A: ToSocketAddrs + Send + Sync + Clone + 'static>(address: A) -> Self {
         let (tx, rx) = channel::<String>();
         let (kill_signal, kill_rcvr) = channel();
+        let (incoming_msg_sndr, incoming_msg_rcvr) = channel();
 
         // Thread for server
-        let server_handle = thread::spawn(move || {
+        let server_handle = thread::spawn(move || loop {
             std::println!("Waiting to connect to Mistria...");
-            let (mut stream, _) = TcpListener::bind(address)
+            let (mut stream, _) = TcpListener::bind(address.clone())
                 .unwrap()
                 .accept()
                 .expect("Couldn't connect");
@@ -50,7 +53,7 @@ impl TcpServer {
                         match message {
                             "ping" => {}
                             message => {
-                                std::println!("[FoM]: {}", message);
+                                incoming_msg_sndr.send(message.to_string()).unwrap();
                             }
                         }
                     }
@@ -58,7 +61,7 @@ impl TcpServer {
                         ErrorKind::WouldBlock => {}
                         ErrorKind::ConnectionReset => {
                             std::println!("Lost connection with Mistria, bailing!");
-                            std::process::exit(0);
+                            break;
                         }
                         kind => panic!("Unexpected error: {:?}", kind),
                     },
@@ -66,7 +69,9 @@ impl TcpServer {
 
                 // Listen to input from the user
                 while let Ok(message) = rx.try_recv() {
-                    stream.write_all(&message.into_bytes()).unwrap();
+                    stream.write_all(message.as_bytes()).unwrap();
+                    // write the null byte...
+                    stream.write_all(&[0]).unwrap();
                 }
 
                 // and finally, check if we should die
@@ -80,6 +85,7 @@ impl TcpServer {
             server_handle,
             tx,
             kill_signal,
+            incoming_rcvr: incoming_msg_rcvr,
         }
     }
 
@@ -89,6 +95,11 @@ impl TcpServer {
     /// This function will crash on any error from the underlying channel.
     pub fn send_message(&mut self, msg: String) {
         self.tx.send(msg).unwrap();
+    }
+
+    /// Reads a message from the TcpClient.
+    pub fn read_messages(&mut self) -> impl Iterator<Item = String> + '_ {
+        self.incoming_rcvr.try_iter()
     }
 
     /// Shuts the server and the handle down.
