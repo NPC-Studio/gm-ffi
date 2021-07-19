@@ -18,17 +18,27 @@ pub struct TcpServer {
     // we keep this guy around for basically no reason.
     #[allow(dead_code)]
     server_handle: JoinHandle<()>,
-    tx: Sender<String>,
-    kill_signal: Sender<()>,
-    incoming_rcvr: Receiver<String>,
+    outgoing: Sender<Outgoing>,
+    incoming: Receiver<Incoming>,
+    connected: bool,
+}
+
+enum Outgoing {
+    Message(String),
+    Kill,
+}
+
+enum Incoming {
+    Message(String),
+    Connected,
+    Disconnected,
 }
 
 impl TcpServer {
     /// Creates a new tcp server at the given address.
     pub fn new<A: ToSocketAddrs + Send + Sync + Clone + 'static>(address: A) -> Self {
-        let (tx, rx) = channel::<String>();
-        let (kill_signal, kill_rcvr) = channel();
-        let (incoming_msg_sndr, incoming_msg_rcvr) = channel();
+        let (outgoing, rx) = channel::<Outgoing>();
+        let (tx, incoming) = channel::<Incoming>();
 
         // Thread for server
         let server_handle = thread::spawn(move || loop {
@@ -39,6 +49,7 @@ impl TcpServer {
                 .expect("Couldn't connect");
             // Clear any input from the user -- we don't want to fire old stuff (lol)
             while rx.try_recv().is_ok() {}
+            tx.send(Incoming::Connected).unwrap();
 
             // Begin connection loop
             std::println!("Connected to Mistria! Entering loop...");
@@ -53,7 +64,7 @@ impl TcpServer {
                         match message {
                             "ping" => {}
                             message => {
-                                incoming_msg_sndr.send(message.to_string()).unwrap();
+                                tx.send(Incoming::Message(message.to_string())).unwrap();
                             }
                         }
                     }
@@ -61,6 +72,8 @@ impl TcpServer {
                         ErrorKind::WouldBlock => {}
                         ErrorKind::ConnectionReset => {
                             std::println!("Lost connection with Mistria, bailing!");
+                            tx.send(Incoming::Disconnected).unwrap();
+
                             break;
                         }
                         kind => panic!("Unexpected error: {:?}", kind),
@@ -69,23 +82,23 @@ impl TcpServer {
 
                 // Listen to input from the user
                 while let Ok(message) = rx.try_recv() {
-                    stream.write_all(message.as_bytes()).unwrap();
-                    // write the null byte...
-                    stream.write_all(&[0]).unwrap();
-                }
-
-                // and finally, check if we should die
-                if kill_rcvr.try_recv().is_ok() {
-                    break;
+                    match message {
+                        Outgoing::Message(message) => {
+                            stream.write_all(message.as_bytes()).unwrap();
+                            // write the null byte...
+                            stream.write_all(&[0]).unwrap();
+                        }
+                        Outgoing::Kill => break,
+                    }
                 }
             }
         });
 
         Self {
             server_handle,
-            tx,
-            kill_signal,
-            incoming_rcvr: incoming_msg_rcvr,
+            outgoing,
+            incoming,
+            connected: false,
         }
     }
 
@@ -94,17 +107,33 @@ impl TcpServer {
     /// ## Panics
     /// This function will crash on any error from the underlying channel.
     pub fn send_message(&self, msg: String) {
-        self.tx.send(msg).unwrap();
+        self.outgoing.send(Outgoing::Message(msg)).unwrap();
     }
 
     /// Reads a message from the TcpClient.
     pub fn read_messages(&mut self) -> impl Iterator<Item = String> + '_ {
-        self.incoming_rcvr.try_iter()
+        let connected = &mut self.connected;
+        self.incoming.try_iter().filter_map(move |v| match v {
+            Incoming::Message(v) => Some(v),
+            Incoming::Connected => {
+                *connected = true;
+                None
+            }
+            Incoming::Disconnected => {
+                *connected = false;
+                None
+            }
+        })
     }
 
     /// Shuts the server and the handle down.
     pub fn shutdown(self) {
-        self.kill_signal.send(()).unwrap();
+        self.outgoing.send(Outgoing::Kill).unwrap();
         self.server_handle.join().unwrap();
+    }
+
+    /// Get a reference to the tcp server's connected.
+    pub fn is_connected(&self) -> bool {
+        self.connected
     }
 }
