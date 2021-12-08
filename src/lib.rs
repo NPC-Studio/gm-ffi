@@ -59,7 +59,7 @@ impl GmPtr {
     /// # Safety
     /// It's a nullptr, come on you dummy! You can obviously break everything
     /// with this.
-    pub const unsafe fn null() -> Self {
+    pub const fn null() -> Self {
         Self(core::ptr::null())
     }
 
