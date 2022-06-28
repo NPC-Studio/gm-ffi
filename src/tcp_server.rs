@@ -101,7 +101,7 @@ impl TcpServer {
                     break;
                 }
             }
-            stream.shutdown(std::net::Shutdown::Both).unwrap();
+            let _ = stream.shutdown(std::net::Shutdown::Both);
         });
 
         Self {
