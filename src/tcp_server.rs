@@ -28,6 +28,7 @@ enum Outgoing {
     Kill,
 }
 
+#[derive(Debug)]
 enum Incoming {
     Message(String),
     Connected,
@@ -42,17 +43,16 @@ impl TcpServer {
 
         // Thread for server
         let server_handle = thread::spawn(move || loop {
-            std::println!("Waiting to connect to Mistria...");
             let (mut stream, _) = TcpListener::bind(address.clone())
                 .unwrap()
                 .accept()
                 .expect("Couldn't connect");
+
             // Clear any input from the user -- we don't want to fire old stuff (lol)
             while rx.try_recv().is_ok() {}
             tx.send(Incoming::Connected).unwrap();
 
             // Begin connection loop
-            std::println!("Connected to Mistria! Entering loop...");
             stream.set_nonblocking(true).unwrap();
             let mut buffer = [0; 1024];
             loop {
@@ -71,7 +71,6 @@ impl TcpServer {
                     Err(err) => match err.kind() {
                         ErrorKind::WouldBlock => {}
                         ErrorKind::ConnectionReset => {
-                            std::println!("Lost connection with Mistria, bailing!");
                             tx.send(Incoming::Disconnected).unwrap();
 
                             break;
@@ -110,17 +109,27 @@ impl TcpServer {
         self.outgoing.send(Outgoing::Message(msg)).unwrap();
     }
 
+    /// Spins until it connects
+    pub fn wait_to_connect(&mut self) {
+        for msg in self.incoming.iter() {
+            if let Incoming::Connected = msg {
+                self.connected = true;
+                break;
+            }
+        }
+    }
+
     /// Reads a message from the TcpClient.
     pub fn read_messages(&mut self) -> impl Iterator<Item = String> + '_ {
-        let connected = &mut self.connected;
-        self.incoming.try_iter().filter_map(move |v| match v {
+        self.incoming.try_iter().filter_map(|v| match v {
             Incoming::Message(v) => Some(v),
             Incoming::Connected => {
-                *connected = true;
+                self.connected = true;
                 None
             }
             Incoming::Disconnected => {
-                *connected = false;
+                self.connected = false;
+
                 None
             }
         })
