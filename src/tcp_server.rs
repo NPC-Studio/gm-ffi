@@ -79,6 +79,8 @@ impl TcpServer {
                     },
                 }
 
+                let mut end_loop = false;
+
                 // Listen to input from the user
                 while let Ok(message) = rx.try_recv() {
                     match message {
@@ -87,10 +89,19 @@ impl TcpServer {
                             // write the null byte...
                             stream.write_all(&[0]).unwrap();
                         }
-                        Outgoing::Kill => break,
+                        Outgoing::Kill => {
+                            stream.write_all(b"kill\0").unwrap();
+                            end_loop = true;
+                            break;
+                        }
                     }
                 }
+
+                if end_loop {
+                    break;
+                }
             }
+            stream.shutdown(std::net::Shutdown::Both).unwrap();
         });
 
         Self {
@@ -138,7 +149,7 @@ impl TcpServer {
     /// Shuts the server and the handle down.
     pub fn shutdown(self) {
         self.outgoing.send(Outgoing::Kill).unwrap();
-        self.server_handle.join().unwrap();
+        // self.server_handle.join().unwrap();
     }
 
     /// Get a reference to the tcp server's connected.
