@@ -1,15 +1,10 @@
 //! A Rust crate to interface between GameMaker and Rust.
 
-#![cfg_attr(not(test), no_std)] // this means we are std in test
 #![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
 #![deny(rust_2018_idioms, broken_intra_doc_links)]
 #![deny(missing_docs)]
 
-#[cfg(feature = "use_std")]
-extern crate std;
-
 /// An optional module for a TcpServer that can be used in debugging contexts.
-#[cfg(feature = "use_std")]
 pub mod tcp_server;
 
 use cty::c_char;
