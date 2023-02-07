@@ -1,19 +1,19 @@
 //! A Rust crate to interface between GameMaker and Rust.
 
 #![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
-#![deny(rust_2018_idioms, broken_intra_doc_links)]
+#![cfg_attr(not(test), no_std)]
+#![deny(rust_2018_idioms)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
 
-/// An optional module for a TcpServer that can be used in debugging contexts.
-pub mod tcp_server;
-
-use cty::c_char;
+use core::ffi::c_char;
 
 /// A status code the represents the outcome of a Rust-side function,
 /// intended to be sent back to GameMaker.
-#[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(transparent)]
 pub struct OutputCode(f64);
+
 impl OutputCode {
     /// Represents an operation that executed as intended.
     pub const SUCCESS: OutputCode = OutputCode(1.0);
@@ -68,7 +68,7 @@ impl GmPtr {
     /// # Saftey
     /// Assumes that the pointer being used is valid as a c_str pointer.
     pub fn to_str(self) -> Result<&'static str, core::str::Utf8Error> {
-        unsafe { cstr_core::CStr::from_ptr(self.0) }.to_str()
+        unsafe { core::ffi::CStr::from_ptr(self.0) }.to_str()
     }
 }
 impl core::ops::Deref for GmPtr {
@@ -110,8 +110,8 @@ impl GmId {
 /// Generally, you shouldn't be constructing this, but should be getting this from Gm.
 /// The one exception is in Unit Tests, where you can get access to a `new` method, or
 /// the `dummy` variant, which will give you an f64::MAX inside.
-#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[repr(transparent)]
 pub struct GmReal(pub f64);
 
 impl GmReal {
@@ -177,7 +177,7 @@ impl<T> GmBuffer<T> {
     ///   representation of the buffer is valid.  
     pub unsafe fn new(gm_id: GmId, gm_ptr: GmPtr, len: usize) -> Self {
         let buffer = {
-            let buf = gm_ptr.inner() as *mut c_char as *mut T;
+            let buf = gm_ptr.inner() as *mut T;
 
             core::slice::from_raw_parts_mut(buf, len)
         };
@@ -263,12 +263,12 @@ mod tests {
 
     #[test]
     fn make_string_ptr() {
-        GmPtr::new("Hello, world!\0".as_ptr() as *const cty::c_char);
+        GmPtr::new("Hello, world!\0".as_ptr() as *const c_char);
     }
 
     #[test]
     fn read_string_ptr() {
-        let ptr = GmPtr::new("Hello, world!\0".as_ptr() as *const cty::c_char);
+        let ptr = GmPtr::new("Hello, world!\0".as_ptr() as *const c_char);
         let out = ptr.to_str().unwrap();
         assert_eq!(out, "Hello, world!");
     }

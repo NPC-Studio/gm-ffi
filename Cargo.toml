@@ -9,5 +9,3 @@ description = "an interface between GameMaker and Rust"
 categories = ["game-development"]
 
 [dependencies]
-cty  = "0.2"
-cstr_core = "0.2"
