@@ -1,11 +1,12 @@
 [package]
 name = "gm-ffi"
-version = "0.1.0"
-authors = ["Gabe Weiner <imlazyeye@gmail.com>"]
+version = "0.2.0"
+authors = [
+    "Gabe Weiner <gabe@npcstudio.com>",
+    "Jonathan Spira <jack@npcstudio.com>",
+]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/npc-studio/gm-ffi"
 description = "an interface between GameMaker and Rust"
 categories = ["game-development"]
-
-[dependencies]
