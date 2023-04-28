@@ -1,7 +1,6 @@
 //! A Rust crate to interface between GameMaker and Rust.
 
 #![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
-#![cfg_attr(not(test), no_std)]
 #![deny(rust_2018_idioms)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
@@ -254,6 +253,118 @@ impl<'a> BridgeWriter<'a> {
         self.0 .0[self.1] = value.to_bits();
         self.1 += 1;
     }
+}
+
+use interprocess::local_socket::LocalSocketStream;
+use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::io::Write;
+
+/// This is exactly like `println`, but works within NPC Studio DLLs. It's not ideal, but it does the job!
+#[macro_export]
+macro_rules! gm_println {
+    ($($arg:tt)*) => {
+        use std::io::Write;
+
+        let mut output = $crate::GmStdOut::stdout();
+        output.write_fmt(format_args!($($arg)*)).unwrap();
+        output.write_str("\n")
+    };
+}
+
+/// This is exactly like `print`, but works within NPC Studio DLLs. It's not ideal, but it does the job!
+#[macro_export]
+macro_rules! gm_print {
+    ($($arg:tt)*) => {
+        use std::io::Write;
+
+        let mut output = $crate::GmStdOut::stdout();
+        output.write_fmt(format_args!($($arg)*)).unwrap();
+    };
+}
+
+/// This struct abstracts for our purposes to only `adam`. It's not very useful
+/// to people outside NPC Studio (unless they also use `adam`), so it's kept internally.
+#[derive(Debug)]
+pub struct GmStdOut(LocalSocketStream);
+
+static GM_STD_OUT: Lazy<RwLock<GmStdOut>> = Lazy::new(|| {
+    let socket_name = std::env::var("ADAM_IPC_SOCKET").expect("could not find `ADAM_IPC_SOCKET`");
+
+    let socket_stream =
+        LocalSocketStream::connect(socket_name).expect("could not connect to socket name!");
+    RwLock::new(GmStdOut(socket_stream))
+});
+
+impl GmStdOut {
+    /// Gets a handle to stdout.
+    pub fn stdout() -> impl std::ops::DerefMut<Target = GmStdOut> {
+        GM_STD_OUT.write()
+    }
+
+    /// Tries to write a string out, handling errors by not handling them at all.
+    pub fn write_str(&mut self, input: &str) {
+        let Ok(()) = self.0.write_all(&(input.len() as u64).to_le_bytes()) else { return; };
+        let Ok(()) = self.0.write_all(input.as_bytes()) else { return };
+        let _ = self.0.flush();
+    }
+}
+
+impl std::io::Write for GmStdOut {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+
+    fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
+        // Create a shim which translates a Write to a fmt::Write and saves
+        // off I/O errors. instead of discarding them
+        struct Adapter<'a> {
+            inner: &'a mut GmStdOut,
+        }
+
+        impl std::fmt::Write for Adapter<'_> {
+            fn write_str(&mut self, s: &str) -> std::fmt::Result {
+                self.inner.write_str(s);
+
+                Ok(())
+            }
+        }
+
+        let mut output = Adapter { inner: self };
+        let _ = std::fmt::write(&mut output, fmt);
+
+        Ok(())
+    }
+}
+
+/// This sets up a fairly decent panic hook. Pass in the name for us to format to use to identify the DLL.
+pub fn setup_panic_hook(project_name: &str) {
+    let base_message = format!("panicked in `{}` at ", project_name);
+
+    std::panic::set_hook(Box::new(move |panic_info| {
+        use std::fmt::Write;
+
+        let mut output = base_message.clone();
+
+        if let Some(message) = panic_info.payload().downcast_ref::<String>() {
+            write!(output, "'{}', ", message).unwrap();
+        } else if let Some(message) = panic_info.payload().downcast_ref::<&'static str>() {
+            write!(output, "'{}', ", message).unwrap();
+        }
+
+        if let Some(location) = panic_info.location() {
+            write!(output, "{}", location).unwrap();
+        }
+        output.push('\n');
+
+        GmStdOut::stdout().write_str(&output);
+
+        std::process::exit(1);
+    }));
 }
 
 #[cfg(test)]

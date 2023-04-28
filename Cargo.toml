@@ -10,3 +10,8 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/npc-studio/gm-ffi"
 description = "an interface between GameMaker and Rust"
 categories = ["game-development"]
+
+[dependencies]
+interprocess = "1.2.1"
+once_cell = "1.17.1"
+parking_lot = "0.12.1"
