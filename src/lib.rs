@@ -263,7 +263,7 @@ macro_rules! gm_println {
         {
             use std::io::Write;
 
-            let mut output = $crate::mac_os_gm_std_out::GmStdOut::stdout();
+            let mut output = $crate::GmStdOut::stdout();
             output.write_fmt(format_args!($($arg)*)).unwrap();
             output.write_str("\n");
         }
@@ -282,7 +282,7 @@ macro_rules! gm_print {
         #[cfg(not(target_os = "windows"))]
         {
             use std::io::Write;
-            let mut output = $crate::mac_os_gm_std_out::GmStdOut::stdout();
+            let mut output = $crate::GmStdOut::stdout();
             output.write_fmt(format_args!($($arg)*)).unwrap();
         }
 
@@ -321,6 +321,7 @@ mod mac_os_gm_std_out {
     use interprocess::local_socket::LocalSocketStream;
     use once_cell::sync::Lazy;
     use parking_lot::RwLock;
+    use std::io::Write;
 
     /// This struct abstracts for our purposes to only `adam`. It's not very useful
     /// to people outside NPC Studio (unless they also use `adam`), so it's kept internally.
@@ -412,7 +413,7 @@ mod mac_os_gm_std_out {
 pub use windows_stub_gm_std_out::setup_panic_hook;
 
 #[cfg(not(target_os = "windows"))]
-pub use mac_os_gm_std_out::setup_panic_hook;
+pub use mac_os_gm_std_out::{setup_panic_hook, GmStdOut};
 
 #[cfg(test)]
 mod tests {
