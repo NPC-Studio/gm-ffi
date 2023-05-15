@@ -42,6 +42,7 @@ impl<T, E> From<Result<T, E>> for OutputCode {
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GmPtr(*const c_char);
+
 impl GmPtr {
     /// Creates a new GmPtr based on the given pointer.
     pub fn new(ptr: *const c_char) -> Self {
@@ -70,12 +71,16 @@ impl GmPtr {
         unsafe { core::ffi::CStr::from_ptr(self.0) }.to_str()
     }
 }
+
 impl core::ops::Deref for GmPtr {
     type Target = *const c_char;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
+
+unsafe impl Send for GmPtr {}
+unsafe impl Sync for GmPtr {}
 
 /// This is a Gm Id for a buffer, or any other dynamically allocated resource.
 /// It is transparent in memory but opaque in type (ie, you can't inspect what's inside it),
