@@ -79,6 +79,12 @@ impl core::ops::Deref for GmPtr {
     }
 }
 
+impl core::ops::DerefMut for GmPtr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 unsafe impl Send for GmPtr {}
 unsafe impl Sync for GmPtr {}
 
