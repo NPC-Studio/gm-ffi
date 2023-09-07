@@ -1,6 +1,7 @@
 //! A Rust crate to interface between GameMaker and Rust.
 
-#![cfg_attr(test, allow(clippy::float_cmp))] // lets us compare floats in asserts
+// lets us compare floats in asserts
+#![cfg_attr(test, allow(clippy::float_cmp))]
 #![deny(rust_2018_idioms)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
@@ -270,7 +271,7 @@ impl<'a> BridgeWriter<'a> {
 #[macro_export]
 macro_rules! gm_println {
     ($($arg:tt)*) => {
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
         {
             use std::io::Write;
 
@@ -290,7 +291,7 @@ macro_rules! gm_println {
 #[macro_export]
 macro_rules! gm_print {
     ($($arg:tt)*) => {
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
         {
             use std::io::Write;
             let mut output = $crate::GmStdOut::stdout();
@@ -327,7 +328,7 @@ mod windows_stub_gm_std_out {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 mod mac_os_gm_std_out {
     use interprocess::local_socket::LocalSocketStream;
     use once_cell::sync::Lazy;
@@ -356,8 +357,12 @@ mod mac_os_gm_std_out {
 
         /// Tries to write a string out, handling errors by not handling them at all.
         pub fn write_str(&mut self, input: &str) {
-            let Ok(()) = self.0.write_all(&(input.len() as u64).to_le_bytes()) else { return; };
-            let Ok(()) = self.0.write_all(input.as_bytes()) else { return };
+            let Ok(()) = self.0.write_all(&(input.len() as u64).to_le_bytes()) else {
+                return;
+            };
+            let Ok(()) = self.0.write_all(input.as_bytes()) else {
+                return;
+            };
             let _ = self.0.flush();
         }
     }
@@ -423,7 +428,7 @@ mod mac_os_gm_std_out {
 #[cfg(target_os = "windows")]
 pub use windows_stub_gm_std_out::setup_panic_hook;
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 pub use mac_os_gm_std_out::{setup_panic_hook, GmStdOut};
 
 #[cfg(test)]
